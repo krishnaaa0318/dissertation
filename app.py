@@ -1,9 +1,9 @@
+import os
+import sys
 import csv
 import json
 import re
-import shutil
 import subprocess
-import sys
 import uuid
 import zipfile
 from datetime import datetime
@@ -28,8 +28,6 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 REPORT_DIR.mkdir(exist_ok=True)
 
 
-# This dictionary is the main translation layer of the prototype.
-# Checkov finds the technical issue. This app explains the issue in simple English.
 CHECKOV_TRANSLATIONS = {
     "CKV_AWS_23": {
         "simple_title": "Security group rule is missing a description",
@@ -377,28 +375,45 @@ def prepare_scan_folder(uploaded_file) -> tuple[Path, str]:
     return scan_dir, scan_id
 
 
-def find_checkov_command() -> list[str] | None:
-    """Find Checkov in the active virtual environment first."""
-    scripts_dir = Path(sys.executable).parent
-
-    possible_names = [
-        "checkov.exe",
-        "checkov.cmd",
-        "checkov.bat",
-        "checkov",
+def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
+    command = [
+        sys.executable,
+        "-m",
+        "checkov.main",
+        "-d",
+        str(scan_dir),
+        "--framework",
+        "terraform",
+        "--output",
+        "json",
+        "--quiet",
     ]
 
-    for name in possible_names:
-        possible_path = scripts_dir / name
-        if possible_path.exists():
-            return [str(possible_path)]
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None, "The scan took too long and was stopped. Try a smaller Terraform file."
+    except Exception as exc:
+        return None, f"Checkov scan failed: {exc}"
 
-    for name in possible_names:
-        found = shutil.which(name)
-        if found:
-            return [found]
+    raw_output = completed.stdout.strip()
 
-    return None
+    if not raw_output:
+        return None, completed.stderr.strip() or "Checkov did not return JSON output."
+
+    try:
+        return json.loads(raw_output), None
+    except json.JSONDecodeError:
+        return None, (
+            "Could not read Checkov JSON output. "
+            f"Error output: {completed.stderr.strip()}"
+        )
 
 
 def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
