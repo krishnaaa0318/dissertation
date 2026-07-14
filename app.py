@@ -417,15 +417,10 @@ def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
 
 
 def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
-    checkov_command = find_checkov_command()
-
-    if not checkov_command:
-        return None, (
-            "Checkov executable was not found. "
-            "Run this in VS Code terminal: .\\venv\\Scripts\\python.exe -m pip install checkov"
-        )
-
-    command = checkov_command + [
+    command = [
+        sys.executable,
+        "-m",
+        "checkov.main",
         "-d",
         str(scan_dir),
         "--framework",
@@ -456,15 +451,10 @@ def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
     try:
         return json.loads(raw_output), None
     except json.JSONDecodeError:
-        return None, f"Could not read Checkov JSON output. Error output: {completed.stderr.strip()}"
-
-
-def flatten_checkov_results(checkov_json) -> dict:
-    """Normalise Checkov JSON whether it returns one result object or a list."""
-    if isinstance(checkov_json, list):
-        result_blocks = checkov_json
-    else:
-        result_blocks = [checkov_json]
+        return None, (
+            "Could not read Checkov JSON output. "
+            f"Error output: {completed.stderr.strip()}"
+        )
 
     passed, failed, skipped = [], [], []
     summary = {
