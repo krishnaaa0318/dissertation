@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Feedback</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell feedback-shell">
+    <nav class="top-nav" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('index') }}">
+            <span class="brand-mark">TS</span>
+            <span>
+                <strong>Terraform Scanner</strong>
+                <small>Prototype evaluation</small>
+            </span>
+        </a>
+        <a class="nav-link" href="{{ url_for('index') }}">Back to scanner</a>
+    </nav>
+
+    <header class="feedback-hero">
+        <span class="eyebrow">User feedback</span>
+        <h1>Prototype Evaluation Feedback</h1>
+        <p>Please answer these questions after reviewing the scan report. The feedback will help evaluate whether the prototype makes Terraform security findings easier to understand.</p>
+    </header>
+
+    <main class="card feedback-card">
+        <form method="POST" class="feedback-form">
+            <div class="form-group">
+                <label for="role">Your background or role</label>
+                <select id="role" name="role" required>
+                    <option value="">Select one</option>
+                    <option value="MSc Computing Student">MSc Computing Student</option>
+                    <option value="Student">Student</option>
+                    <option value="Junior Cloud Learner">Junior Cloud Learner</option>
+                    <option value="Junior Cloud Engineer">Junior Cloud Engineer</option>
+                    <option value="Cloud/DevOps Practitioner">Cloud/DevOps Practitioner</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="ease_of_use">How easy was the tool to use?</label>
+                <select id="ease_of_use" name="ease_of_use" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Very difficult">1 - Very difficult</option>
+                    <option value="2 - Difficult">2 - Difficult</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Easy">4 - Easy</option>
+                    <option value="5 - Very easy">5 - Very easy</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="report_clarity">Was the simplified explanation easy to understand?</label>
+                <select id="report_clarity" name="report_clarity" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Very unclear">1 - Very unclear</option>
+                    <option value="2 - Unclear">2 - Unclear</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Clear">4 - Clear</option>
+                    <option value="5 - Very clear">5 - Very clear</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="line_guidance_helpfulness">Did the line guidance help you find the issue in the Terraform file?</label>
+                <select id="line_guidance_helpfulness" name="line_guidance_helpfulness" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Not helpful">1 - Not helpful</option>
+                    <option value="2 - Slightly helpful">2 - Slightly helpful</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Helpful">4 - Helpful</option>
+                    <option value="5 - Very helpful">5 - Very helpful</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="mitigation_usefulness">Was the suggested fix useful?</label>
+                <select id="mitigation_usefulness" name="mitigation_usefulness" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Not useful">1 - Not useful</option>
+                    <option value="2 - Slightly useful">2 - Slightly useful</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Useful">4 - Useful</option>
+                    <option value="5 - Very useful">5 - Very useful</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="checkov_output_simplified">Did the report make Checkov output easier to understand?</label>
+                <select id="checkov_output_simplified" name="checkov_output_simplified" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Strongly disagree">1 - Strongly disagree</option>
+                    <option value="2 - Disagree">2 - Disagree</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Agree">4 - Agree</option>
+                    <option value="5 - Strongly agree">5 - Strongly agree</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="confidence_after_use">Did the tool improve your confidence in understanding Terraform misconfigurations?</label>
+                <select id="confidence_after_use" name="confidence_after_use" required>
+                    <option value="">Select rating</option>
+                    <option value="1 - Not at all">1 - Not at all</option>
+                    <option value="2 - Slightly">2 - Slightly</option>
+                    <option value="3 - Neutral">3 - Neutral</option>
+                    <option value="4 - Yes">4 - Yes</option>
+                    <option value="5 - Strongly yes">5 - Strongly yes</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="most_useful_part">What was the most useful part of the report?</label>
+                <textarea id="most_useful_part" name="most_useful_part" rows="3" placeholder="For example: simple explanation, risk level, line guidance, before/after fix..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="confusing_part">What part was confusing or difficult to understand?</label>
+                <textarea id="confusing_part" name="confusing_part" rows="3" placeholder="Write anything that was unclear..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="comments">What improvements would you suggest?</label>
+                <textarea id="comments" name="comments" rows="4" placeholder="Write any improvement ideas here..."></textarea>
+            </div>
+
+            <div class="privacy-note">
+                <strong>Note:</strong> Submitted feedback is saved locally for the researcher in the
+                <code>reports/feedback.csv</code> file. Do not include names, student numbers, or personal details.
+            </div>
+
+            <div class="action-row">
+                <button type="submit">Submit Feedback</button>
+                <a class="button secondary" href="{{ url_for('index') }}">Back to Scanner</a>
+            </div>
+        </form>
+    </main>
+</div>
+</body>
+</html>

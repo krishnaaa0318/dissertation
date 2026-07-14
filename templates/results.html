@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <nav class="top-nav" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('index') }}">
+            <span class="brand-mark">TS</span>
+            <span>
+                <strong>Terraform Scanner</strong>
+                <small>Scan results</small>
+            </span>
+        </a>
+        <a class="nav-link" href="{{ url_for('index') }}">New scan</a>
+    </nav>
+
+    <header class="results-hero risk-{{ report.risk_level|lower }}">
+        <div>
+            <span class="eyebrow">Scan completed</span>
+            <h1>Terraform Security Report</h1>
+            <p>{{ report.risk_description }}</p>
+        </div>
+        <div class="risk-panel">
+            <span class="label">Overall risk</span>
+            <strong class="risk-text {{ report.risk_level|lower }}">{{ report.risk_level }}</strong>
+        </div>
+    </header>
+
+    <main class="results-layout">
+        <aside class="results-sidebar" aria-label="Scan summary">
+            <section class="summary-card">
+                <h2>Summary</h2>
+                <div class="metric-list">
+                    <div class="metric-item passed">
+                        <span>Passed</span>
+                        <strong>{{ report.summary.passed }}</strong>
+                    </div>
+                    <div class="metric-item failed">
+                        <span>Failed</span>
+                        <strong>{{ report.summary.failed }}</strong>
+                    </div>
+                    <div class="metric-item skipped">
+                        <span>Skipped</span>
+                        <strong>{{ report.summary.skipped }}</strong>
+                    </div>
+                </div>
+                <div class="mini-stats">
+                    <div>
+                        <span>Custom explanations</span>
+                        <strong>{{ report.summary.custom_explanations }}</strong>
+                    </div>
+                    <div>
+                        <span>Fallback explanations</span>
+                        <strong>{{ report.summary.fallback_explanations }}</strong>
+                    </div>
+                </div>
+            </section>
+
+            {% if report.provider_counts %}
+            <section class="actions-card provider-summary">
+                <h2>Cloud providers</h2>
+                <div class="provider-list">
+                    {% for provider, count in report.provider_counts.items() %}
+                        <span>{{ provider }} <strong>{{ count }}</strong></span>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="actions-card learning-note">
+                <h2>Learning note</h2>
+                <p>This result is for learning and early security review. It does not replace a full professional cloud security audit.</p>
+            </section>
+
+            <section class="actions-card">
+                <h2>Actions</h2>
+                <a class="button primary" href="{{ url_for('index') }}">Run Another Scan</a>
+                <a class="button secondary" href="{{ url_for('download_report', scan_id=report.scan_id) }}">Download JSON Report</a>
+                <a class="button success" href="{{ url_for('feedback', scan_id=report.scan_id) }}">Give Feedback</a>
+            </section>
+        </aside>
+
+        <section class="findings-area" aria-label="Failed checks">
+            {% if report.priority_findings %}
+            <section class="priority-panel" aria-label="Top priority fixes">
+                <div class="section-heading compact-heading">
+                    <div>
+                        <span class="eyebrow">Fix first</span>
+                        <h2>Top 3 issues to review first</h2>
+                    </div>
+                </div>
+                <div class="priority-grid">
+                    {% for item in report.priority_findings %}
+                        <article class="priority-card risk-{{ item.risk_level|lower }}">
+                            <span class="risk-badge {{ item.risk_level|lower }}">{{ item.risk_level }}</span>
+                            <h3>{{ item.simple_title }}</h3>
+                            <p>{{ item.provider }} · {{ item.category }}</p>
+                            <small>{{ item.resource }}</small>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Failed checks</span>
+                    <h2>Issues to review</h2>
+                </div>
+                <span class="count-pill"><span id="visible-count">{{ report.summary.failed }}</span> finding{% if report.summary.failed != 1 %}s{% endif %}</span>
+            </div>
+
+            {% if report.findings %}
+                <div class="filter-bar" aria-label="Cloud provider filters">
+                    <button type="button" class="filter-button active" data-provider-filter="all">All</button>
+                    <button type="button" class="filter-button" data-provider-filter="AWS">AWS</button>
+                    <button type="button" class="filter-button" data-provider-filter="Azure">Azure</button>
+                    <button type="button" class="filter-button" data-provider-filter="GCP">GCP</button>
+                    <button type="button" class="filter-button" data-provider-filter="Other">Other</button>
+                </div>
+
+                <div id="no-filter-results" class="filter-empty" hidden>
+                    No findings for this provider in this scan.
+                </div>
+
+                {% for finding in report.findings %}
+                    <article class="finding-card risk-{{ finding.risk_level|lower }}" data-provider="{{ finding.provider }}">
+                        <header class="finding-header">
+                            <div>
+                                <div class="card-kicker">
+                                    <span>{{ finding.provider }}</span>
+                                    <span>{{ finding.category }}</span>
+                                    <span>{{ finding.issue_type }}</span>
+                                    <span>{{ finding.check_id }}</span>
+                                </div>
+                                <h3>{{ finding.simple_title }}</h3>
+                                <p class="original-check">{{ finding.check_name }}</p>
+                            </div>
+                            <span class="risk-badge {{ finding.risk_level|lower }}">{{ finding.risk_level }}</span>
+                        </header>
+
+                        <section class="risk-explainer {{ finding.risk_level|lower }}">
+                            <strong>{{ finding.risk_level }} risk:</strong> {{ finding.risk_description }}
+                        </section>
+
+                        <div class="insight-grid">
+                            <section class="insight-card">
+                                <h4>What this means</h4>
+                                <p>{{ finding.what_this_means }}</p>
+                            </section>
+                            <section class="insight-card">
+                                <h4>Why it matters</h4>
+                                <p>{{ finding.why_it_matters }}</p>
+                            </section>
+                        </div>
+
+                        <section class="code-section review-{{ finding.code_context.review_type }}">
+                            <div class="subsection-title">
+                                <h4>Where to check</h4>
+                                {% if finding.code_context.available and finding.code_context.likely_lines %}
+                                    <span class="line-chip">Likely line{% if finding.code_context.likely_lines|length > 1 %}s{% endif %}: {{ finding.code_context.likely_lines|join(', ') }}</span>
+                                {% elif finding.code_context.review_type == 'missing_setting' %}
+                                    <span class="line-chip missing-chip">Missing setting</span>
+                                {% elif finding.file_line_range %}
+                                    <span class="line-chip muted-chip">Range: {{ finding.file_line_range }}</span>
+                                {% endif %}
+                            </div>
+
+                            {% if finding.code_context.available %}
+                                <p class="line-note">{{ finding.code_context.message }}</p>
+                                <div class="code-preview" aria-label="Terraform line preview">
+                                    {% for line in finding.code_context.lines %}
+                                        <div class="code-line{% if line.is_likely_change %} likely-change{% elif line.in_range %} in-range{% endif %}">
+                                            <span class="line-number">{{ line.number }}</span>
+                                            <code>{{ line.content }}</code>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="line-note">{{ finding.code_context.message }}</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="fix-section">
+                            <div class="subsection-title">
+                                <h4>How to fix this</h4>
+                            </div>
+                            <div class="recommended-change">
+                                <span>Recommended change</span>
+                                <p>{{ finding.suggested_fix }}</p>
+                            </div>
+                            {% if finding.fix_steps %}
+                                <ol class="fix-steps">
+                                    {% for step in finding.fix_steps %}
+                                        <li>{{ step }}</li>
+                                    {% endfor %}
+                                </ol>
+                            {% endif %}
+
+                            {% if finding.fix_example %}
+                                <div class="before-after-grid">
+                                    <div class="fix-example-card before">
+                                        <strong>Before</strong>
+                                        <pre><code>{{ finding.fix_example.before }}</code></pre>
+                                    </div>
+                                    <div class="fix-example-card after">
+                                        <strong>After</strong>
+                                        <pre><code>{{ finding.fix_example.after }}</code></pre>
+                                    </div>
+                                </div>
+                            {% elif finding.example_fix %}
+                                <div class="example-fix">
+                                    <strong>Example safer Terraform setting</strong>
+                                    <pre><code>{{ finding.example_fix }}</code></pre>
+                                </div>
+                            {% endif %}
+                        </section>
+
+                        <details class="technical-details">
+                            <summary>Technical details</summary>
+                            <div class="technical-grid">
+                                <p><strong>Resource:</strong> {{ finding.resource }}</p>
+                                <p><strong>File:</strong> {{ finding.file_path }}</p>
+                                {% if finding.file_line_range %}
+                                    <p><strong>Checkov line range:</strong> {{ finding.file_line_range }}</p>
+                                {% endif %}
+                                <p><strong>Checkov severity:</strong> {{ finding.technical_severity }}</p>
+                                <p><strong>Explanation source:</strong> {{ finding.mapping_source }}</p>
+                            </div>
+                            {% if finding.guideline and finding.guideline != "No guideline link provided" %}
+                                <a class="guideline-link" href="{{ finding.guideline }}" target="_blank" rel="noopener noreferrer">Open Checkov guideline</a>
+                            {% endif %}
+                        </details>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <span class="empty-icon">✓</span>
+                    <h3>No failed checks found</h3>
+                    <p>No Terraform security misconfigurations were detected in this scan.</p>
+                    <a class="button primary" href="{{ url_for('index') }}">Scan another file</a>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+</div>
+
+<script>
+    function setResultsPaneHeight() {
+        const layout = document.querySelector('.results-layout');
+        if (!layout) return;
+
+        const desktopView = window.matchMedia('(min-width: 1041px)').matches;
+        if (!desktopView) {
+            layout.style.removeProperty('--results-pane-height');
+            return;
+        }
+
+        const topPosition = layout.getBoundingClientRect().top;
+        const availableHeight = window.innerHeight - topPosition - 24;
+        layout.style.setProperty('--results-pane-height', `${Math.max(540, availableHeight)}px`);
+    }
+
+    window.addEventListener('load', setResultsPaneHeight);
+    window.addEventListener('resize', setResultsPaneHeight);
+
+    const filterButtons = document.querySelectorAll('[data-provider-filter]');
+    const findingCards = document.querySelectorAll('.finding-card[data-provider]');
+    const visibleCount = document.getElementById('visible-count');
+    const noFilterResults = document.getElementById('no-filter-results');
+
+    filterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const selectedProvider = button.dataset.providerFilter;
+            let count = 0;
+
+            filterButtons.forEach((item) => item.classList.remove('active'));
+            button.classList.add('active');
+
+            findingCards.forEach((card) => {
+                const shouldShow = selectedProvider === 'all' || card.dataset.provider === selectedProvider;
+                card.hidden = !shouldShow;
+                if (shouldShow) {
+                    count += 1;
+                }
+            });
+
+            if (visibleCount) {
+                visibleCount.textContent = count;
+            }
+
+            if (noFilterResults) {
+                noFilterResults.hidden = count !== 0;
+            }
+        });
+    });
+</script>
+</body>
+</html>
