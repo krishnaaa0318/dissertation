@@ -416,47 +416,17 @@ def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
         )
 
 
-def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
-    command = [
-        sys.executable,
-        "-m",
-        "checkov.main",
-        "-d",
-        str(scan_dir),
-        "--framework",
-        "terraform",
-        "--output",
-        "json",
-        "--quiet",
-    ]
+def flatten_checkov_results(checkov_json) -> dict:
+    """Normalise Checkov JSON whether it returns one result object or a list."""
+    if isinstance(checkov_json, list):
+        result_blocks = checkov_json
+    else:
+        result_blocks = [checkov_json]
 
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return None, "The scan took too long and was stopped. Try a smaller Terraform file."
-    except Exception as exc:
-        return None, f"Checkov scan failed: {exc}"
+    passed = []
+    failed = []
+    skipped = []
 
-    raw_output = completed.stdout.strip()
-
-    if not raw_output:
-        return None, completed.stderr.strip() or "Checkov did not return JSON output."
-
-    try:
-        return json.loads(raw_output), None
-    except json.JSONDecodeError:
-        return None, (
-            "Could not read Checkov JSON output. "
-            f"Error output: {completed.stderr.strip()}"
-        )
-
-    passed, failed, skipped = [], [], []
     summary = {
         "passed": 0,
         "failed": 0,
@@ -466,20 +436,26 @@ def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
 
     for block in result_blocks:
         results = block.get("results", {}) if isinstance(block, dict) else {}
+
         passed.extend(results.get("passed_checks", []) or [])
         failed.extend(results.get("failed_checks", []) or [])
         skipped.extend(results.get("skipped_checks", []) or [])
 
         block_summary = block.get("summary", {}) if isinstance(block, dict) else {}
+
         summary["passed"] += int(block_summary.get("passed", 0) or 0)
         summary["failed"] += int(block_summary.get("failed", 0) or 0)
         summary["skipped"] += int(block_summary.get("skipped", 0) or 0)
-        summary["parsing_errors"] += int(block_summary.get("parsing_errors", 0) or 0)
+        summary["parsing_errors"] += int(
+            block_summary.get("parsing_errors", 0) or 0
+        )
 
     if summary["passed"] == 0:
         summary["passed"] = len(passed)
+
     if summary["failed"] == 0:
         summary["failed"] = len(failed)
+
     if summary["skipped"] == 0:
         summary["skipped"] = len(skipped)
 
@@ -489,6 +465,7 @@ def run_checkov(scan_dir: Path) -> tuple[dict | None, str | None]:
         "passed_checks": passed,
         "skipped_checks": skipped,
     }
+
 
 
 def classify_finding(check_name: str) -> str:
