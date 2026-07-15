@@ -1,12 +1,10 @@
 import os
 import sys
-import csv
 import json
 import re
 import subprocess
 import uuid
 import zipfile
-from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
@@ -15,7 +13,6 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 REPORT_DIR = BASE_DIR / "reports"
-FEEDBACK_FILE = REPORT_DIR / "feedback.csv"
 
 ALLOWED_EXTENSIONS = {".tf", ".tfvars", ".hcl", ".zip"}
 MAX_UPLOAD_MB = 8
@@ -1096,36 +1093,6 @@ def make_report(scan_id: str, checkov_json: dict, scan_dir: Path) -> dict:
     return report
 
 
-def append_feedback_to_csv(data: dict) -> None:
-    """
-    Saves every feedback response automatically for the owner.
-    The owner can find all saved responses in reports/feedback.csv.
-    """
-    file_exists = FEEDBACK_FILE.exists()
-
-    fieldnames = [
-        "timestamp",
-        "scan_id",
-        "role",
-        "ease_of_use",
-        "report_clarity",
-        "line_guidance_helpfulness",
-        "mitigation_usefulness",
-        "checkov_output_simplified",
-        "confidence_after_use",
-        "most_useful_part",
-        "confusing_part",
-        "comments",
-    ]
-
-    with FEEDBACK_FILE.open("a", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-        if not file_exists:
-            writer.writeheader()
-
-        writer.writerow(data)
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -1157,36 +1124,6 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/feedback/<scan_id>", methods=["GET", "POST"])
-def feedback(scan_id: str):
-    safe_id = secure_filename(scan_id)
-    report_path = REPORT_DIR / f"{safe_id}.json"
-
-    if not report_path.exists():
-        flash("Scan report not found. Please run a scan first.", "error")
-        return redirect(url_for("index"))
-
-    if request.method == "POST":
-        feedback_data = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "scan_id": safe_id,
-            "role": request.form.get("role", "").strip(),
-            "ease_of_use": request.form.get("ease_of_use", "").strip(),
-            "report_clarity": request.form.get("report_clarity", "").strip(),
-            "line_guidance_helpfulness": request.form.get("line_guidance_helpfulness", "").strip(),
-            "mitigation_usefulness": request.form.get("mitigation_usefulness", "").strip(),
-            "checkov_output_simplified": request.form.get("checkov_output_simplified", "").strip(),
-            "confidence_after_use": request.form.get("confidence_after_use", "").strip(),
-            "most_useful_part": request.form.get("most_useful_part", "").strip(),
-            "confusing_part": request.form.get("confusing_part", "").strip(),
-            "comments": request.form.get("comments", "").strip(),
-        }
-
-        append_feedback_to_csv(feedback_data)
-        return render_template("feedback_success.html", scan_id=safe_id)
-
-    return render_template("feedback.html", scan_id=safe_id)
-
 
 @app.route("/download/<scan_id>")
 def download_report(scan_id: str):
@@ -1203,18 +1140,6 @@ def download_report(scan_id: str):
         download_name=f"terraform_security_report_{safe_id}.json",
     )
 
-
-@app.route("/download-feedback")
-def download_feedback():
-    if not FEEDBACK_FILE.exists():
-        flash("No feedback has been submitted yet.", "error")
-        return redirect(url_for("index"))
-
-    return send_file(
-        FEEDBACK_FILE,
-        as_attachment=True,
-        download_name="prototype_feedback.csv",
-    )
 
 
 @app.errorhandler(413)
