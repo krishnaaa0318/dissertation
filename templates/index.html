@@ -16,7 +16,6 @@
                 <small>IaC security learning tool</small>
             </span>
         </a>
-        <span class="nav-pill">Powered by Checkov</span>
     </nav>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -59,6 +58,8 @@
                 </p>
 
                 <form method="POST" enctype="multipart/form-data" class="upload-form">
+                      onsubmit="this.querySelector('.primary-action').textContent='Scanning...';">
+                    
                     <label class="file-drop" for="terraform_file">
                         <span class="file-icon">↥</span>
                         <span>
@@ -67,7 +68,7 @@
                         </span>
                     </label>
                     <input id="terraform_file" type="file" name="terraform_file" required>
-                    <button type="submit" class="primary-action">Scan File</button>
+                    <button type="submit" class="primary-action">Run Scan</button>
                 </form>
 
                 <div class="safety-card">
