@@ -9,14 +9,14 @@
 <body>
 <div class="app-shell">
     <nav class="top-nav" aria-label="Main navigation">
-        <a class="brand" href="{{ url_for('index') }}">
+        <a class="brand" href="{{ url_for('prototype') }}">
             <span class="brand-mark">TS</span>
             <span>
                 <strong>Terraform Scanner</strong>
                 <small>Scan results</small>
             </span>
         </a>
-        <a class="nav-link" href="{{ url_for('index') }}">New scan</a>
+        <a class="nav-link" href="{{ url_for('prototype') }}">New scan</a>
     </nav>
 
     <header class="results-hero risk-{{ report.risk_level|lower }}">
@@ -79,7 +79,7 @@
 
             <section class="actions-card">
                 <h2>Actions</h2>
-                <a class="button primary" href="{{ url_for('index') }}">Run Another Scan</a>
+                <a class="button primary" href="{{ url_for('prototype') }}">Run Another Scan</a>
                 <a class="button secondary" href="{{ url_for('download_report', scan_id=report.scan_id) }}">Download JSON Report</a>
                 <a class="button success" href="https://forms.cloud.microsoft/e/jEEL48xymP" target="_blank" rel="noopener noreferrer">Give Feedback</a>
             </section>
@@ -243,7 +243,7 @@
                     <span class="empty-icon">✓</span>
                     <h3>No failed checks found</h3>
                     <p>No Terraform security misconfigurations were detected in this scan.</p>
-                    <a class="button primary" href="{{ url_for('index') }}">Scan another file</a>
+                    <a class="button primary" href="{{ url_for('prototype') }}">Scan another file</a>
                 </div>
             {% endif %}
         </section>
