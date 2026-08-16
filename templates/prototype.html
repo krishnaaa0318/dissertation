@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terraform Security Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <nav class="top-nav" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('prototype') }}">
+            <span class="brand-mark">TS</span>
+            <span>
+                <strong>Terraform Scanner</strong>
+                <small>IaC security learning tool</small>
+            </span>
+        </a>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="messages">
+                {% for category, message in messages %}
+                    <div class="message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        <section class="home-hero">
+            <div class="hero-copy">
+                <span class="eyebrow">Prototype security scanner</span>
+                <h1>Find Terraform misconfigurations before deployment.</h1>
+                <p>
+                    Upload a Terraform file and receive a simple report that explains failed checks,
+                    risk level, code location, and clear fixing advice.
+                </p>
+                <div class="hero-points" aria-label="Main features">
+                    <span>Plain-English results</span>
+                    <span>Line guidance</span>
+                    <span>JSON report</span>
+                </div>
+            </div>
+
+            <section class="upload-panel" aria-labelledby="upload-title">
+                <div class="panel-header">
+                    <div>
+                        <span class="step-badge">Step 1</span>
+                        <h2 id="upload-title">Upload Terraform</h2>
+                    </div>
+                    <span class="file-limit">Max {{ 8 }} MB</span>
+                </div>
+
+                <p class="muted">
+                    Accepted formats: <strong>.tf</strong>, <strong>.tfvars</strong>, <strong>.hcl</strong>, or <strong>.zip</strong>
+                </p>
+
+                <p class="sample-files-link">
+                    Sample Terraform Files: <a href="{{ url_for('static', filename='research/terraform_security_samples_6_files.zip') }}" download>Download sample files</a>
+                </p>
+
+                <form method="POST" enctype="multipart/form-data" class="upload-form"
+                      onsubmit="this.querySelector('.primary-action').textContent='Scanning...';">
+                    
+                    <label class="file-drop" for="terraform_file">
+                        <span class="file-icon">↥</span>
+                        <span>
+                            <strong>Choose a Terraform file</strong>
+                            <small>Upload one file or a zipped Terraform folder</small>
+                        </span>
+                    </label>
+                    <input id="terraform_file" type="file" name="terraform_file" required>
+                    <button type="submit" class="primary-action">Run Scan</button>
+                </form>
+
+                <div class="safety-card">
+                    <strong>Safe testing note</strong>
+                    <p>Use sample or academic test files only. Do not upload real company code, cloud credentials, or production Terraform.</p>
+                </div>
+            </section>
+        </section>
+
+        <section class="workflow-grid" aria-label="How the scanner works">
+            <article class="workflow-card">
+                <span class="workflow-number">01</span>
+                <h3>Checkov scan</h3>
+                <p>The backend runs Checkov and collects the scan output in JSON format.</p>
+            </article>
+            <article class="workflow-card">
+                <span class="workflow-number">02</span>
+                <h3>Translation layer</h3>
+                <p>The app maps selected Checkov IDs to simple explanations and safer guidance.</p>
+            </article>
+            <article class="workflow-card">
+                <span class="workflow-number">03</span>
+                <h3>Code location</h3>
+                <p>The report shows the affected file, line range, and likely lines to review.</p>
+            </article>
+            <article class="workflow-card">
+                <span class="workflow-number">04</span>
+                <h3>Feedback</h3>
+                <p>Users can give short feedback to support the prototype evaluation.</p>
+            </article>
+        </section>
+    </main>
+</div>
+</body>
+</html>
