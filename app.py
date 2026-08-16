@@ -7,7 +7,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1097,32 +1097,48 @@ def make_report(scan_id: str, checkov_json: dict, scan_dir: Path) -> dict:
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
+        if request.form.get("consent_confirm") != "yes":
+            flash("Please confirm the consent statement before continuing.", "error")
+            return redirect(url_for("index"))
+
+        session["consent_confirmed"] = True
+        return redirect(url_for("prototype"))
+
+    return render_template("index.html")
+
+
+@app.route("/prototype", methods=["GET", "POST"])
+def prototype():
+    if not session.get("consent_confirmed"):
+        flash("Please confirm the consent statement before accessing the prototype.", "error")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
         uploaded_file = request.files.get("terraform_file")
 
         if not uploaded_file or uploaded_file.filename == "":
             flash("Please upload a Terraform .tf file or a .zip folder.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("prototype"))
 
         if not allowed_file(uploaded_file.filename):
             flash("Only .tf, .tfvars, .hcl, and .zip files are allowed.", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("prototype"))
 
         try:
             scan_dir, scan_id = prepare_scan_folder(uploaded_file)
             checkov_json, error = run_checkov(scan_dir)
         except Exception as exc:
             flash(f"Upload or scan preparation failed: {exc}", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("prototype"))
 
         if error:
             flash(error, "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("prototype"))
 
         report = make_report(scan_id, checkov_json, scan_dir)
         return render_template("results.html", report=report)
 
-    return render_template("index.html")
-
+    return render_template("prototype.html")
 
 
 @app.route("/download/<scan_id>")
@@ -1132,7 +1148,7 @@ def download_report(scan_id: str):
 
     if not report_path.exists():
         flash("Report not found.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("prototype"))
 
     return send_file(
         report_path,
@@ -1145,7 +1161,7 @@ def download_report(scan_id: str):
 @app.errorhandler(413)
 def file_too_large(error):
     flash(f"File too large. Maximum upload size is {MAX_UPLOAD_MB} MB.", "error")
-    return redirect(url_for("index"))
+    return redirect(url_for("prototype"))
 
 
 if __name__ == "__main__":
