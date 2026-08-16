@@ -16,7 +16,10 @@
                 <small>Scan results</small>
             </span>
         </a>
-        <a class="nav-link" href="{{ url_for('prototype') }}">New scan</a>
+        <div class="nav-actions">
+            <a class="nav-link" href="https://forms.cloud.microsoft/e/jEEL48xymP" target="_blank" rel="noopener noreferrer">Give Feedback</a>
+            <a class="nav-link" href="{{ url_for('prototype') }}">New scan</a>
+        </div>
     </nav>
 
     <header class="results-hero risk-{{ report.risk_level|lower }}">
