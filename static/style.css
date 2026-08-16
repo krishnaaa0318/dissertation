@@ -122,6 +122,12 @@ a {
     color: var(--primary-dark);
 }
 
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .messages {
     margin-bottom: 18px;
 }
