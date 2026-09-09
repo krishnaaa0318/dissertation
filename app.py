@@ -805,7 +805,7 @@ CHECKOV_ISSUE_TYPES = {
 
 # These checks often fail because something is missing, not because one single line is visibly wrong.
 MISSING_SETTING_IDS = {
-    "CKV_AWS_18", "CKV_AWS_21", "CKV_AWS_118", "CKV_AWS_129",
+    "CKV_AWS_18", "CKV_AWS_21", "CKV_AWS_23", "CKV_AWS_118", "CKV_AWS_129",
     "CKV_AWS_145", "CKV_AWS_144", "CKV2_AWS_61", "CKV2_AWS_62",
     "CKV_AWS_157", "CKV_AWS_161", "CKV_AWS_226", "CKV2_AWS_60",
 }
@@ -992,19 +992,196 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
     }
 
 
-def get_fix_steps(check_id: str, translation: dict) -> list[str]:
-    """Return rule-specific steps or a simple fallback."""
-    if check_id in CHECKOV_FIX_STEPS:
-        return CHECKOV_FIX_STEPS[check_id]
+def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str) -> dict:
+    """Return a focused source-code preview and highlight likely lines to change."""
+    source_file = resolve_source_file(scan_dir, file_path)
+    start, end = normalise_line_range(line_range)
 
-    category = translation.get("category", "cloud security")
-    steps = [
-        "Open the Terraform file and resource shown in the result.",
-        "Review the highlighted line range or resource block.",
-        f"Update the {category.lower()} setting using the recommended change above.",
-        "Run the scan again and check that the finding is reduced or removed.",
+    if not source_file or start is None:
+        return {
+            "available": False,
+            "message": "Source line preview is not available for this finding.",
+            "review_type": "not_available",
+            "lines": [],
+            "likely_lines": [],
+            "start_line": start,
+            "end_line": end,
+        }
+
+    try:
+        all_lines = source_file.read_text(
+            encoding="utf-8",
+            errors="replace"
+        ).splitlines()
+    except Exception:
+        return {
+            "available": False,
+            "message": "The source file could not be read for line preview.",
+            "review_type": "not_available",
+            "lines": [],
+            "likely_lines": [],
+            "start_line": start,
+            "end_line": end,
+        }
+
+    if not all_lines:
+        return {
+            "available": False,
+            "message": "The source file is empty, so no line preview is available.",
+            "review_type": "not_available",
+            "lines": [],
+            "likely_lines": [],
+            "start_line": start,
+            "end_line": end,
+        }
+
+    range_start = max(1, start)
+    range_end = min(len(all_lines), end if end is not None else start)
+
+    if range_end < range_start:
+        range_end = range_start
+
+    patterns = [
+        re.compile(pattern, re.IGNORECASE)
+        for pattern in CHECKOV_LINE_HINTS.get(check_id, [])
     ]
-    return steps
+
+    # Search only inside the range reported by Checkov.
+    likely_lines = []
+
+    for line_number in range(range_start, range_end + 1):
+        text = all_lines[line_number - 1]
+
+        if any(pattern.search(text) for pattern in patterns):
+            likely_lines.append(line_number)
+
+    if likely_lines:
+        review_type = "exact_line"
+
+        if len(likely_lines) == 1:
+            message = (
+                "Risky line found. Review and change the red highlighted line."
+            )
+        else:
+            message = (
+                "Risky lines found. Review and change the red highlighted lines."
+            )
+
+        # Show only the likely faulty lines and one nearby line.
+        # This avoids repeating the whole Terraform resource for every finding.
+        selected_numbers = set()
+
+        for line_number in likely_lines:
+            selected_numbers.update(
+                range(
+                    max(range_start, line_number - 1),
+                    min(range_end, line_number + 1) + 1,
+                )
+            )
+
+        display_numbers = sorted(selected_numbers)
+
+    elif check_id == "CKV_AWS_23":
+        review_type = "missing_setting"
+
+        message = (
+            "No empty description line was found. Checkov can report this "
+            "when a description is missing from the security group or one "
+            "of its ingress or egress rules. Review the compact rule context "
+            "below and add the missing description."
+        )
+
+        # Do not incorrectly highlight an existing resource description.
+        # Prefer the ingress/egress rule blocks where a description may
+        # actually be missing.
+        rule_headers = [
+            line_number
+            for line_number in range(range_start, range_end + 1)
+            if re.match(
+                r"^\s*(ingress|egress)\s*\{",
+                all_lines[line_number - 1],
+                re.IGNORECASE,
+            )
+        ]
+
+        selected_numbers = set()
+
+        for line_number in rule_headers[:3]:
+            selected_numbers.update(
+                range(
+                    line_number,
+                    min(range_end, line_number + 2) + 1,
+                )
+            )
+
+        if selected_numbers:
+            display_numbers = sorted(selected_numbers)
+        else:
+            # Standalone security-group-rule resources may not use
+            # nested ingress/egress blocks.
+            display_numbers = list(
+                range(
+                    range_start,
+                    min(range_end, range_start + 5) + 1,
+                )
+            )
+
+    elif check_id in MISSING_SETTING_IDS:
+        review_type = "missing_setting"
+
+        message = (
+            "No single wrong line was found. This issue is likely caused "
+            "by a missing security setting inside this resource block. "
+            "Review the amber range and add the required setting."
+        )
+
+        padding = 3
+        preview_start = max(1, range_start - padding)
+        preview_end = min(len(all_lines), range_end + padding)
+
+        display_numbers = list(
+            range(preview_start, preview_end + 1)
+        )
+
+    else:
+        review_type = "line_range"
+
+        message = (
+            "Checkov reported this issue in the shown resource block. "
+            "Review the amber line range and update the relevant setting."
+        )
+
+        padding = 3
+        preview_start = max(1, range_start - padding)
+        preview_end = min(len(all_lines), range_end + padding)
+
+        display_numbers = list(
+            range(preview_start, preview_end + 1)
+        )
+
+    context_lines = []
+
+    for line_number in display_numbers:
+        text = all_lines[line_number - 1]
+
+        context_lines.append(
+            {
+                "number": line_number,
+                "content": text,
+                "in_range": range_start <= line_number <= range_end,
+                "is_likely_change": line_number in likely_lines,
+            }
+        )
+
+    return {
+        "available": True,
+        "message": message,
+        "review_type": review_type,
+        "lines": context_lines,
+        "likely_lines": likely_lines,
+        "start_line": start,
+        "end_line": end,
+    }
 
 
 def simplify_failed_checks(failed_checks: list[dict], scan_dir: Path) -> list[dict]:
