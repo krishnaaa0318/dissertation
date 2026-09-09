@@ -1183,6 +1183,19 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
         "end_line": end,
     }
 
+def get_fix_steps(check_id: str, translation: dict) -> list[str]:
+    """Return rule-specific steps or a simple fallback."""
+    if check_id in CHECKOV_FIX_STEPS:
+        return CHECKOV_FIX_STEPS[check_id]
+
+    category = translation.get("category", "cloud security")
+    steps = [
+        "Open the Terraform file and resource shown in the result.",
+        "Review the highlighted line range or resource block.",
+        f"Update the {category.lower()} setting using the recommended change above.",
+        "Run the scan again and check that the finding is reduced or removed.",
+    ]
+    return steps
 
 def simplify_failed_checks(failed_checks: list[dict], scan_dir: Path) -> list[dict]:
     simplified = []
