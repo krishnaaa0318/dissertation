@@ -991,7 +991,6 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
         "end_line": end,
     }
 
-
 def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str) -> dict:
     """Return a focused source-code preview and highlight likely lines to change."""
     source_file = resolve_source_file(scan_dir, file_path)
@@ -1036,7 +1035,10 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
         }
 
     range_start = max(1, start)
-    range_end = min(len(all_lines), end if end is not None else start)
+    range_end = min(
+        len(all_lines),
+        end if end is not None else start
+    )
 
     if range_end < range_start:
         range_end = range_start
@@ -1068,7 +1070,7 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
             )
 
         # Show only the likely faulty lines and one nearby line.
-        # This avoids repeating the whole Terraform resource for every finding.
+        # This avoids repeating the whole Terraform resource.
         selected_numbers = set()
 
         for line_number in likely_lines:
@@ -1085,40 +1087,80 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
         review_type = "missing_setting"
 
         message = (
-            "No empty description line was found. Checkov can report this "
-            "when a description is missing from the security group or one "
-            "of its ingress or egress rules. Review the compact rule context "
-            "below and add the missing description."
+            "No description was found in this security group rule. "
+            "Review the compact rule context below and add a description."
         )
 
-        # Do not incorrectly highlight an existing resource description.
-        # Prefer the ingress/egress rule blocks where a description may
-        # actually be missing.
-        rule_headers = [
-            line_number
-            for line_number in range(range_start, range_end + 1)
+        missing_rule_blocks = []
+        line_number = range_start
+
+        # Find ingress/egress blocks and determine which ones
+        # do not contain their own description attribute.
+        while line_number <= range_end:
+            text = all_lines[line_number - 1]
+
             if re.match(
                 r"^\s*(ingress|egress)\s*\{",
-                all_lines[line_number - 1],
+                text,
                 re.IGNORECASE,
-            )
-        ]
+            ):
+                block_start = line_number
+                block_end = line_number
+                depth = 0
+
+                for current_line in range(
+                    line_number,
+                    range_end + 1
+                ):
+                    current_text = all_lines[current_line - 1]
+
+                    depth += current_text.count("{")
+                    depth -= current_text.count("}")
+                    block_end = current_line
+
+                    if current_line > block_start and depth <= 0:
+                        break
+
+                has_description = any(
+                    re.match(
+                        r"^\s*description\s*=",
+                        all_lines[n - 1],
+                        re.IGNORECASE,
+                    )
+                    for n in range(
+                        block_start,
+                        block_end + 1
+                    )
+                )
+
+                if not has_description:
+                    missing_rule_blocks.append(
+                        (block_start, block_end)
+                    )
+
+                line_number = block_end + 1
+                continue
+
+            line_number += 1
 
         selected_numbers = set()
 
-        for line_number in rule_headers[:3]:
+        # Show only a compact preview of rule blocks
+        # that actually lack a description.
+        for block_start, block_end in missing_rule_blocks[:3]:
             selected_numbers.update(
                 range(
-                    line_number,
-                    min(range_end, line_number + 2) + 1,
+                    block_start,
+                    min(block_end, block_start + 3) + 1,
                 )
             )
 
         if selected_numbers:
             display_numbers = sorted(selected_numbers)
+
         else:
-            # Standalone security-group-rule resources may not use
-            # nested ingress/egress blocks.
+            # Fallback for standalone security-group-rule resources
+            # or unusual Terraform structures.
             display_numbers = list(
                 range(
                     range_start,
@@ -1137,10 +1179,16 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
 
         padding = 3
         preview_start = max(1, range_start - padding)
-        preview_end = min(len(all_lines), range_end + padding)
+        preview_end = min(
+            len(all_lines),
+            range_end + padding
+        )
 
         display_numbers = list(
-            range(preview_start, preview_end + 1)
+            range(
+                preview_start,
+                preview_end + 1
+            )
         )
 
     else:
@@ -1153,10 +1201,16 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
 
         padding = 3
         preview_start = max(1, range_start - padding)
-        preview_end = min(len(all_lines), range_end + padding)
+        preview_end = min(
+            len(all_lines),
+            range_end + padding
+        )
 
         display_numbers = list(
-            range(preview_start, preview_end + 1)
+            range(
+                preview_start,
+                preview_end + 1
+            )
         )
 
     context_lines = []
@@ -1182,7 +1236,7 @@ def build_code_context(scan_dir: Path, file_path: str, line_range, check_id: str
         "start_line": start,
         "end_line": end,
     }
-
+    
 def get_fix_steps(check_id: str, translation: dict) -> list[str]:
     """Return rule-specific steps or a simple fallback."""
     if check_id in CHECKOV_FIX_STEPS:
